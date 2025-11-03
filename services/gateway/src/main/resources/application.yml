@@ -1,0 +1,66 @@
+server:
+  port: 8080
+spring:
+  application:
+    name: gateway
+downstream:
+  flights: http://localhost:8060
+  tickets: http://localhost:8070
+  privileges: http://localhost:8050
+degradation:
+  services:
+    flights:
+      healthUrl: "${downstream.flights}/manage/health"
+      failureThreshold: 3
+      resetTimeoutMs: 30000
+      probeIntervalMs: 5000
+      displayName: "Flight Service"
+    tickets:
+      healthUrl: "${downstream.tickets}/manage/health"
+      failureThreshold: 3
+      resetTimeoutMs: 30000
+      displayName: "Ticket Service"
+    privileges:
+      healthUrl: "${downstream.privileges}/manage/health"
+      failureThreshold: 2
+      resetTimeoutMs: 20000
+      displayName: "Bonus Service"
+  routes:
+    - path: "/api/v1/me"
+      method: GET
+      services:
+        tickets:
+          critical: true
+        privileges:
+          critical: false
+          fallback: '{"balance": null, "status": null}'
+    - path: "/api/v1/tickets"
+      method: GET
+      services:
+        tickets:
+          critical: true
+        flights:
+          critical: false
+          fallback: '{"fromAirport":null,"toAirport":null,"date":null}'
+    - path: "/api/v1/flights"
+      method: GET
+      services:
+        flights:
+          critical: true
+        tickets:
+          critical: false
+          fallback: '{"flightNumber": null, "fromAirport": 0, "toAirport": 0, "date": null, "price": 0}'
+    - path: "/api/v1/privilege/cancel/"
+      method: POST
+      services:
+        tickets:
+          critical: false
+          fallback: '{ "balance": 0, "status": null }'
+          enqueue-on-failure: true
+    - path: "/api/v1/privilege"
+      method: GET
+      services:
+        privileges:
+          critical: true
+        tickets:
+          critical: true

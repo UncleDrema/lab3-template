@@ -1,7 +1,6 @@
-version: "3"
 services:
   postgres:
-    image: library/postgres:13
+    image: library/postgres:15
     container_name: postgres
     restart: on-failure
     environment:
@@ -13,8 +12,59 @@ services:
       - ./postgres/:/docker-entrypoint-initdb.d/
     ports:
       - "5432:5432"
+    networks:
+      - microservice-net
+  flights:
+    image: uncledrema/flights:latest
+    container_name: flights
+    depends_on:
+      - postgres
+    environment:
+      SPRING_DATASOURCE_URL: "jdbc:postgresql://postgres:5432/flights"
+    ports:
+      - "8060:8060"
+    networks:
+      - microservice-net
 
-# TODO добавить сервисы
+  tickets:
+    image: uncledrema/tickets:latest
+    container_name: tickets
+    depends_on:
+      - postgres
+    environment:
+      SPRING_DATASOURCE_URL: "jdbc:postgresql://postgres:5432/tickets"
+      UPSTREAM_GATEWAY: "http://gateway:8080/api/v1"
+    ports:
+      - "8070:8070"
+    networks:
+      - microservice-net
+
+  privileges:
+    image: uncledrema/privileges:latest
+    container_name: privileges
+    depends_on:
+      - postgres
+    environment:
+      SPRING_DATASOURCE_URL: "jdbc:postgresql://postgres:5432/privileges"
+    ports:
+      - "8050:8050"
+    networks:
+      - microservice-net
+
+  gateway:
+    image: uncledrema/gateway:latest
+    container_name: gateway
+    environment:
+      DOWNSTREAM_FLIGHTS: "http://flights:8060"
+      DOWNSTREAM_TICKETS: "http://tickets:8070"
+      DOWNSTREAM_PRIVILEGES: "http://privileges:8050"
+    ports:
+      - "8080:8080"
+    networks:
+      - microservice-net
 
 volumes:
   db-data:
+
+networks:
+  microservice-net:

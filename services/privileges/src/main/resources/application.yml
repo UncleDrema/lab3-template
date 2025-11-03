@@ -1,0 +1,14 @@
+server:
+  port: 8050
+spring:
+  application:
+    name: privileges
+  datasource:
+    url: jdbc:postgresql://localhost:5432/privileges
+    username: program
+    password: test
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    generate-ddl: true
+    hibernate:
+      ddl-auto: update

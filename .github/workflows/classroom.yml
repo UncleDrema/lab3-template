@@ -11,9 +11,164 @@ jobs:
     name: Autograding
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '25'
+          cache: 'gradle'
+
+      - name: Run unit tests - Flights
+        working-directory: ./services/flights
+        env:
+          CI: true
+        run: ./gradlew clean test --no-daemon
+
+      - name: Run unit tests - Tickets
+        working-directory: ./services/tickets
+        env:
+          CI: true
+        run: ./gradlew clean test --no-daemon
+
+      - name: Run unit tests - Privileges
+        working-directory: ./services/privileges
+        env:
+          CI: true
+        run: ./gradlew clean test --no-daemon
+
+      - name: Run unit tests - Gateway
+        working-directory: ./services/gateway
+        env:
+          CI: true
+        run: ./gradlew clean test --no-daemon
+      
+      - name: Docker Login (Docker Hub)
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+
+      - name: Build & publish image with bootBuildImage - Flights
+        working-directory: ./services/flights
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
+          DOCKER_REGISTRY_URL: "https://index.docker.io/v1/"
+        run: ./gradlew --no-daemon bootBuildImage --imageName=${{ secrets.DOCKERHUB_USERNAME }}/flights:${{ github.sha }}
+
+      - name: Push image to Docker Hub - Flights
+        run: |
+          IMAGE_SHA=${{ secrets.DOCKERHUB_USERNAME }}/flights:${{ github.sha }}
+          IMAGE_LATEST=${{ secrets.DOCKERHUB_USERNAME }}/flights:latest
+          echo "Tagging $IMAGE_SHA as $IMAGE_LATEST"
+          docker tag $IMAGE_SHA $IMAGE_LATEST
+          echo "Pushing $IMAGE_SHA"
+          docker push $IMAGE_SHA
+          echo "Pushing $IMAGE_LATEST"
+          docker push $IMAGE_LATEST
+
+      - name: Build & publish image with bootBuildImage - Tickets
+        working-directory: ./services/tickets
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
+          DOCKER_REGISTRY_URL: "https://index.docker.io/v1/"
+        run: ./gradlew --no-daemon bootBuildImage --imageName=${{ secrets.DOCKERHUB_USERNAME }}/tickets:${{ github.sha }}
+
+      - name: Push image to Docker Hub - Tickets
+        run: |
+          IMAGE_SHA=${{ secrets.DOCKERHUB_USERNAME }}/tickets:${{ github.sha }}
+          IMAGE_LATEST=${{ secrets.DOCKERHUB_USERNAME }}/tickets:latest
+          echo "Tagging $IMAGE_SHA as $IMAGE_LATEST"
+          docker tag $IMAGE_SHA $IMAGE_LATEST
+          echo "Pushing $IMAGE_SHA"
+          docker push $IMAGE_SHA
+          echo "Pushing $IMAGE_LATEST"
+          docker push $IMAGE_LATEST
+
+      - name: Build & publish image with bootBuildImage - Privileges
+        working-directory: ./services/privileges
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
+          DOCKER_REGISTRY_URL: "https://index.docker.io/v1/"
+        run: ./gradlew --no-daemon bootBuildImage --imageName=${{ secrets.DOCKERHUB_USERNAME }}/privileges:${{ github.sha }}
+
+      - name: Push image to Docker Hub - Privileges
+        run: |
+          IMAGE_SHA=${{ secrets.DOCKERHUB_USERNAME }}/privileges:${{ github.sha }}
+          IMAGE_LATEST=${{ secrets.DOCKERHUB_USERNAME }}/privileges:latest
+          echo "Tagging $IMAGE_SHA as $IMAGE_LATEST"
+          docker tag $IMAGE_SHA $IMAGE_LATEST
+          echo "Pushing $IMAGE_SHA"
+          docker push $IMAGE_SHA
+          echo "Pushing $IMAGE_LATEST"
+          docker push $IMAGE_LATEST
+
+      - name: Build & publish image with bootBuildImage - Gateway
+        working-directory: ./services/gateway
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
+          DOCKER_REGISTRY_URL: "https://index.docker.io/v1/"
+        run: ./gradlew --no-daemon bootBuildImage --imageName=${{ secrets.DOCKERHUB_USERNAME }}/gateway:${{ github.sha }}
+
+      - name: Push image to Docker Hub - Gateway
+        run: |
+          IMAGE_SHA=${{ secrets.DOCKERHUB_USERNAME }}/gateway:${{ github.sha }}
+          IMAGE_LATEST=${{ secrets.DOCKERHUB_USERNAME }}/gateway:latest
+          echo "Tagging $IMAGE_SHA as $IMAGE_LATEST"
+          docker tag $IMAGE_SHA $IMAGE_LATEST
+          echo "Pushing $IMAGE_SHA"
+          docker push $IMAGE_SHA
+          echo "Pushing $IMAGE_LATEST"
+          docker push $IMAGE_LATEST
+
+      - name: Copy docker-compose.yml to remote host
+        uses: appleboy/scp-action@v0.1.5
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: ${{ secrets.SSH_PORT || '22' }}
+          source: "docker-compose.yml"
+          target: "~/deploy/"
+
+      - name: Copy postgres initial scripts to remote host
+        uses: appleboy/scp-action@v0.1.5
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: ${{ secrets.SSH_PORT || '22' }}
+          source: "postgres/*"
+          target: "~/deploy/"
+
+      - name: Copy ci scripts to remote host
+        uses: appleboy/scp-action@v0.1.5
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: ${{ secrets.SSH_PORT || '22' }}
+          source: "ci/*.sh"
+          target: "~/deploy/"
+
+      - name: Run pull & update on remote host
+        uses: appleboy/ssh-action@v0.1.8
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: ${{ secrets.SSH_PORT || '22' }}
+          script: |
+            set -euo pipefail
+            cd ~/deploy || exit 1
+            ./ci/pull_and_update.sh docker-compose.yml
 
       - uses: docker/setup-buildx-action@v2
 
@@ -37,23 +192,23 @@ jobs:
         timeout-minutes: 5
         run: ./scripts/test-script.sh
         env:
-          VARIANT: <variant>
-          SERVICE_NAME: <your service name>
-          PORT_NUMBER: <port number>
+          VARIANT: v1
+          SERVICE_NAME: privileges
+          PORT_NUMBER: 8050
 
-      - uses: education/autograding@v1
-        id: autograder
-        continue-on-error: true
+#      - uses: education/autograding@v1
+#        id: autograder
+#        continue-on-error: true
 
-      - name: Github auto grader mark
-        uses: Romanow/google-sheet-autograder-marker@v1.0
-        with:
-          google_token: ${{secrets.GOOGLE_API_KEY}}
-          sheet_id: "1xkgjUX6Qmk7rdJG-QPOToav-HWWtthJjnShIKnw3oIY"
-          homework_number: 3
-          user_column: 'D'
-          column_offset: 'F'
-          mark: "'+"
+#      - name: Github auto grader mark
+#        uses: Romanow/google-sheet-autograder-marker@v1.0
+#        with:
+#          google_token: ${{secrets.GOOGLE_API_KEY}}
+#          sheet_id: "1xkgjUX6Qmk7rdJG-QPOToav-HWWtthJjnShIKnw3oIY"
+#          homework_number: 3
+#          user_column: 'D'
+#          column_offset: 'F'
+#          mark: "'+"
 
       - name: Stop containers
         if: always()
