@@ -283,7 +283,7 @@ public class ProxyController {
     // ---- утилиты копирования заголовков и маршрутизации ----
     private String serviceKeyFor(String forwardPath) {
         String p = forwardPath.toLowerCase();
-        if (p.startsWith("/flights")) return "flights";
+        if (p.startsWith("/flights") || p.startsWith("/airports")) return "flights";
         if (p.startsWith("/tickets")) return "tickets";
         if (p.startsWith("/privilege") || p.startsWith("/privileges")) return "privileges";
         return "unknown";
@@ -292,7 +292,7 @@ public class ProxyController {
     @Nullable
     private String selectTarget(String forwardPath) {
         String p = forwardPath.toLowerCase();
-        if (p.startsWith("/flights")) return flightsBase;
+        if (p.startsWith("/flights") || p.startsWith("/airports")) return flightsBase;
         if (p.startsWith("/tickets")) return ticketsBase;
         if (p.startsWith("/privilege") || p.startsWith("/privileges")) return privilegesBase;
         return null;

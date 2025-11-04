@@ -21,6 +21,15 @@ timed() {
   LC_NUMERIC=C printf "\nTotal runtime: %02d min %02d seconds\n" "$dm" "$ds"
 }
 
+init() {
+    newman run \
+    --delay-request=100 \
+    --folder=init \
+    --export-environment "$variant"/postman/environment.json \
+    --environment "$variant"/postman/environment.json \
+    "$variant"/postman/collection.json
+}
+
 success() {
   newman run \
     --delay-request=100 \
@@ -55,6 +64,9 @@ start=$(date +%s)
 trap 'timed $start' EXIT
 
 printf "=== Start test scenario ===\n"
+
+# init data
+init
 
 # success execute
 success
