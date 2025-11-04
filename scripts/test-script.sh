@@ -8,22 +8,6 @@ port=${3:-${PORT_NUMBER}}
 
 path=$(dirname "$0")
 
-dump_logs() {
-  local exit_code=$?
-  if [[ $exit_code -ne 0 ]]; then
-    echo ""
-    echo "=== ERROR OCCURRED! Dumping docker-compose logs ==="
-    echo ""
-    docker compose logs --tail=100
-    echo ""
-    echo "=== End of logs ==="
-  fi
-  return $exit_code
-}
-
-# Установить trap для отлова ошибок
-trap 'dump_logs' ERR
-
 timed() {
   end=$(date +%s)
   dt=$(("$end" - $1))
